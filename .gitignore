@@ -1,0 +1,8 @@
+# runtime state (cloned plugins live in ~/.local/share/blossom-shell)
+plugins/
+*.bstmp
+
+# build artifacts (sl/sl is compiled from sl/blossom-sl.c via sl/Makefile)
+sl/sl
+__pycache__/
+*.pyc

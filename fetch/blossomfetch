@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+# blossomfetch — a Blossom-themed system fetch.
+#
+#   blossomfetch            full view (custom blossom logo + detailed, adaptive)
+#   blossomfetch -m|--mini  compact login greeter
+#   blossomfetch -b|--blossom   force true pink/gold (overrides the adaptive palette)
+#   blossomfetch -s|--steam     Steam-comment-safe spec block (no fastfetch needed)
+#         add  -c|--copy        also copy it to the clipboard
+#   blossomfetch -h|--help
+#
+# The full/mini views are fastfetch under the hood; --steam is self-contained so
+# it works (and stays paste-clean) even where fastfetch isn't installed.
+set -uo pipefail
+
+CFG="${XDG_CONFIG_HOME:-$HOME/.config}/fastfetch"
+
+# --- Blossom truecolor (only used by --blossom) -------------------------------
+B_PINK="38;2;219;55;118"; B_GOLD="38;2;241;191;64"; B_SOFT="38;2;230;115;159"
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# GPU "Marketing Name (Codename)" — Mesa (glxinfo) resolves the marketing name,
+# lspci the silicon codename. Used by the full view (a command module) and by
+# --steam, so both stay in sync. Falls back to lspci alone if Mesa is absent.
+gpu_name() {
+  local g code
+  g="$(glxinfo -B 2>/dev/null | sed -nE 's/^ *Device: //p' | sed -E 's/ \(.*//' | head -1)"
+  code="$(lspci 2>/dev/null | grep -iE 'vga|3d|display' | head -1 \
+        | sed -nE 's/.*\[AMD\/ATI\] ([A-Za-z0-9 ]+) \[.*/\1/p' | sed 's/ *$//')"
+  if [ -z "$g" ]; then
+    g="$(lspci 2>/dev/null | grep -iE 'vga|3d|display' | head -1 \
+        | sed -E 's/.*controller: //; s/ \(rev[^)]*\)//; s/Advanced Micro Devices, Inc\. \[AMD\/ATI\] //')"
+  elif [ -n "$code" ] && ! printf '%s' "$g" | grep -qiF "$code"; then
+    g="$g ($code)"
+  fi
+  printf '%s' "$g"
+}
+
+# Host "Vendor Board" — fastfetch's host module reads the *product* DMI fields,
+# which are blank on many desktop boards; the baseboard fields carry the maker.
+host_name() {
+  local v n
+  v="$(cat /sys/devices/virtual/dmi/id/board_vendor 2>/dev/null)"
+  n="$(cat /sys/devices/virtual/dmi/id/board_name 2>/dev/null)"
+  echo "$v $n" | sed 's/^ *//; s/ *$//; s/  */ /g'
+}
+
+need_fastfetch() {
+  have fastfetch && return 0
+  printf '❀ fastfetch isn'\''t installed yet.\n  Install it with:\n' >&2
+  printf '    sudo add-apt-repository -y ppa:zhangsongcui3371/fastfetch && sudo apt update && sudo apt install -y fastfetch\n' >&2
+  printf '  (The --steam block works without it.)\n' >&2
+  return 1
+}
+
+# `exec` is load-bearing: fastfetch's Shell module reports the active shell by
+# walking up the process tree to the first shell it finds. This wrapper is bash,
+# so a plain call makes fastfetch stop at *this* bash and mislabel the shell as
+# "bash" even from a zsh terminal. exec replaces the wrapper, so fastfetch's
+# parent is the real interactive shell (e.g. zsh) and it reports it correctly.
+run_full()  { need_fastfetch || return 1; exec fastfetch --config "$CFG/config-full.jsonc" "$@"; }
+run_mini()  { need_fastfetch || return 1; exec fastfetch --config "$CFG/config-mini.jsonc" "$@"; }
+
+run_blossom() {
+  need_fastfetch || return 1
+  # Override the adaptive SGR slots with true Blossom truecolor.
+  exec fastfetch --config "$CFG/config-full.jsonc" \
+    --logo-color-1 "$B_PINK" --logo-color-2 "$B_GOLD" --logo-color-3 "$B_SOFT" \
+    --color-keys "$B_GOLD" --color-title "$B_PINK"
+}
+
+# --- Steam-safe spec block ----------------------------------------------------
+# Steam strips leading spaces and collapses runs of spaces, and renders in a
+# proportional font — so: one fact per line, single spaces, no column alignment,
+# inline "·" separators, unicode section glyphs.  All probed live.
+steam_block() {
+  local os de sess kern cpu cores threads mhz gpu vram ram board res disk hz fsroot
+
+  . /etc/os-release 2>/dev/null
+  os="${PRETTY_NAME:-Linux}"; [ -n "${VERSION:-}" ] && os="${NAME} ${VERSION}"
+  de="$( (cinnamon --version 2>/dev/null || echo "${XDG_CURRENT_DESKTOP:-}") | head -1 )"
+  sess="$( [ "${XDG_SESSION_TYPE:-x11}" = wayland ] && echo Wayland || echo X11 )"
+  kern="$(uname -r | cut -d- -f1)"
+
+  cpu="$(LC_ALL=C lscpu 2>/dev/null | sed -n 's/^Model name:[[:space:]]*//p' | head -1)"
+  cpu="${cpu:-$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //')}"
+  # drop the marketing noise we already convey via the core/thread count
+  cpu="$(echo "$cpu" | sed -E 's/\((R|TM)\)//g; s/ (CPU|Processor)//g; s/ [0-9]+-Core//g; s/  +/ /g; s/ +$//')"
+  cores="$(LC_ALL=C lscpu 2>/dev/null | sed -n 's/^Core(s) per socket:[[:space:]]*//p')"
+  threads="$(nproc 2>/dev/null)"
+  mhz="$(LC_ALL=C lscpu 2>/dev/null | sed -n 's/^CPU max MHz:[[:space:]]*//p' | cut -d. -f1)"
+  local ghz=""; [ -n "$mhz" ] && ghz="$(awk -v m="$mhz" 'BEGIN{printf "%.2f", m/1000}')"
+
+  gpu="$(gpu_name)"   # "Marketing Name (Codename)"
+  vram="$(awk '{printf "%.0f", $1/1073741824}' /sys/class/drm/card*/device/mem_info_vram_total 2>/dev/null | head -1)"
+
+  # MemTotal is the kernel-usable figure (~31.3 for 32 installed); round to the
+  # nearest 4 GB to report the marketed capacity sticks actually total.
+  ram="$(awk '/MemTotal/{g=$2/1024/1024; printf "%d", (int((g+2)/4))*4}' /proc/meminfo)"
+  board="$(cat /sys/devices/virtual/dmi/id/board_vendor 2>/dev/null) $(cat /sys/devices/virtual/dmi/id/board_name 2>/dev/null)"
+  board="$(echo "$board" | sed 's/^ *//; s/ *$//')"
+  res="$(xrandr 2>/dev/null | sed -n 's/.*current \([0-9]\+\) x \([0-9]\+\).*/\1×\2/p' | head -1)"
+  hz="$(xrandr 2>/dev/null | awk '/\*/{for(i=1;i<=NF;i++) if($i ~ /\*/){r=$i; gsub(/[*+]/,"",r); printf "%d", r+0.5; exit}}')"
+  [ -n "$hz" ] && [ -n "$res" ] && res="$res @ ${hz} Hz"
+  fsroot="$(findmnt -no FSTYPE / 2>/dev/null)"
+
+  # internal physical disks: size + SSD/HDD, SSDs first, skip loop/usb
+  disk="$(lsblk -dn -o SIZE,ROTA,TYPE,TRAN 2>/dev/null | sort -k2,2n | awk '
+    $3=="disk" && $4!="usb" {
+      s=$1; u=substr(s,length(s)); v=substr(s,1,length(s)-1)+0
+      if      (u=="T") sz=v" TB"
+      else if (u=="G") sz=sprintf("%.0f GB", v)
+      else             sz=s
+      t=($2==0)?"SSD":"HDD"
+      printf "%s%s %s", (n++?" · ":""), sz, t
+    } END{print ""}')"
+
+  # assemble (leading "·" lines have no leading spaces; safe for Steam)
+  printf '❀ SYSTEM SPECS ❀  ·  Arc Raiders\n'
+  printf '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+  printf '▸ OS:  %s  ·  %s (%s)\n' "$os" "$de" "$sess"
+  printf '▸ Kernel:  Linux %s\n' "$kern"
+  printf '▸ CPU:  %s  ·  %s @ %s GHz\n' "$cpu" "${cores:-?}C/${threads:-?}T" "${ghz:-?}"
+  printf '▸ GPU:  %s  ·  %s GB\n' "${gpu:-unknown}" "${vram:-?}"
+  printf '▸ RAM:  %s GB\n' "${ram:-?}"
+  printf '▸ Board:  %s\n' "${board:-unknown}"
+  printf '▸ Display:  %s\n' "${res:-unknown}"
+  printf '▸ Storage:  %s\n' "${disk:-unknown}"
+  printf '▸ Filesystem:  %s\n' "${fsroot:-unknown} (root /)"
+}
+
+run_steam() {
+  local copy=0; [ "${1:-}" = "--copy" ] || [ "${1:-}" = "-c" ] && copy=1
+  local block; block="$(steam_block)"
+  printf '%s\n' "$block"
+  if [ "$copy" = 1 ]; then
+    if   have wl-copy; then printf '%s' "$block" | wl-copy        && echo "  ❀ copied to clipboard (wl-copy)"
+    elif have xclip;   then printf '%s' "$block" | xclip -sel clip && echo "  ❀ copied to clipboard (xclip)"
+    elif have xsel;    then printf '%s' "$block" | xsel -b        && echo "  ❀ copied to clipboard (xsel)"
+    else echo "  (install wl-clipboard / xclip / xsel to enable --copy)" >&2; fi
+  fi
+}
+
+usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; }
+
+case "${1:-}" in
+  ""|full)        run_full ;;
+  -m|--mini)      run_mini ;;
+  -b|--blossom)   run_blossom ;;
+  -s|--steam)     shift; run_steam "${1:-}" ;;
+  --gpu-name)     gpu_name; echo ;;        # internal: used by the full config
+  --host-name)    host_name ;;             # internal: used by the full config
+  -h|--help)      usage ;;
+  *)              echo "blossomfetch: unknown option '$1'" >&2; usage; exit 1 ;;
+esac

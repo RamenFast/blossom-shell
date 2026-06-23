@@ -1,0 +1,61 @@
+// Blossomfetch — full view.  Engine: fastfetch.  Palette: ADAPTIVE (SGR slots,
+// so it borrows the terminal theme — warm 1905 now, pink/gold under a Blossom
+// terminal theme).  `blossomfetch --blossom` overrides these to true pink/gold.
+// @PREFIX@ is rewritten to ~/.config/fastfetch by install.sh.
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+
+    "logo": {
+        "type": "file",
+        "source": "@PREFIX@/logo/blossom.txt",
+        "padding": { "top": 1, "left": 2, "right": 3 },
+        // 35 = magenta slot (pink), 33 = yellow slot (gold), 2;35 = dim pink edge
+        "color": { "1": "35", "2": "33", "3": "2;35" }
+    },
+
+    "display": {
+        "separator": "  ",
+        "color": { "keys": "33", "title": "1;35" },
+        "key": { "width": 11 },
+        "size": { "binaryPrefix": "jedec", "ndigits": 1 },
+        "temp": { "ndigits": 0 },
+        "percent": { "type": 3 }
+    },
+
+    "modules": [
+        "break",
+        { "type": "title", "format": "{user-name}@{host-name}" },
+        { "type": "separator", "string": "─" },
+
+        { "type": "os",            "key": "OS" },
+        { "type": "command",       "key": "Host", "text": "blossomfetch --host-name" },
+        { "type": "kernel",        "key": "Kernel" },
+        { "type": "uptime",        "key": "Uptime" },
+        { "type": "packages",      "key": "Packages" },
+        { "type": "shell",         "key": "Shell" },
+        { "type": "display",       "key": "Display" },
+        { "type": "de",            "key": "DE" },
+        { "type": "wm",            "key": "WM" },
+        { "type": "wmtheme",       "key": "WM Theme" },
+        { "type": "theme",         "key": "Theme" },
+        { "type": "icons",         "key": "Icons" },
+        { "type": "terminal",      "key": "Terminal" },
+        { "type": "terminalfont",  "key": "Term Font" },
+
+        "break",
+        { "type": "cpu",     "key": "CPU" },
+        // GPU over two lines: line 1 = marketing name + codename (our detector),
+        // line 2 (blank key, indented) = fastfetch's live stats.
+        { "type": "command", "key": "GPU", "text": "blossomfetch --gpu-name" },
+        { "type": "gpu",     "key": "↳", "driverSpecific": true, "temp": true,
+          "format": "{core-count} cores @ {frequency} · {dedicated-used} / {dedicated-total} VRAM · {type} · {temperature}" },
+        { "type": "memory",  "key": "Memory" },
+        { "type": "swap",    "key": "Swap" },
+        { "type": "disk",    "key": "Disk",   "folders": "/" },
+        { "type": "locale",  "key": "Locale" },
+
+        "break",
+        { "type": "colors", "symbol": "circle", "paddingLeft": 2 },
+        "break"
+    ]
+}
