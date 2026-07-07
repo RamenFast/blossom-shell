@@ -74,11 +74,24 @@ fi
 # and `cdi` opens an interactive fzf picker over everywhere you've been.
 if command -v zoxide >/dev/null; then
   eval "$(zoxide init zsh --cmd cd)"
+  # zoxide's completion ends in an unconditional `return 0`, which tells
+  # compsys "matches were added" even when its `_files -/` found none — so the
+  # matcher-list retry loop stops at tier 1 and the substring tier that makes
+  # emoji dirs completable (options.zsh) never runs. Wrap it to report the
+  # truth: succeed only if something was actually added.
+  if (( ${+functions[__zoxide_z_complete]} && ! ${+functions[_bs_zoxide_z_complete]} )); then
+    functions -c __zoxide_z_complete _bs_zoxide_z_complete
+    __zoxide_z_complete() {
+      _bs_zoxide_z_complete "$@"
+      (( compstate[nmatches] ))
+    }
+  fi
 fi
 
-# fzf-tab — turns TAB completion into a fuzzy, navigable menu. Built for paths
-# with emojis in them: type the plain-text bits, pick with ↑/↓ or Ctrl-j/k,
-# Enter to fill. Loads after compinit (via options.zsh), before highlighting.
+# fzf-tab — turns TAB completion into a fuzzy, navigable menu. Made for paths
+# with emojis in them: the substring matcher (options.zsh) surfaces
+# "📁 Documents" when you type Doc<TAB>, and fzf-tab lets you pick it with
+# ↑/↓ or Ctrl-j/k, Enter to fill. Loads after compinit, before highlighting.
 if command -v fzf >/dev/null && [[ -f "$_bs_plug/fzf-tab/fzf-tab.plugin.zsh" ]]; then
   zstyle ':completion:*' menu no                        # required: fzf-tab replaces zsh's menu
   zstyle ':completion:*:descriptions' format '[%d]'     # group headers inside the menu
@@ -95,6 +108,19 @@ if command -v fzf >/dev/null && [[ -f "$_bs_plug/fzf-tab/fzf-tab.plugin.zsh" ]];
   zstyle ':fzf-tab:complete:(nvim|vim|vi|nano|bat|batcat|cat|less|code):*' fzf-preview \
     "[ -d \$realpath ] && $_bs_dirprev \$realpath || $_bs_fileprev \$realpath 2>/dev/null"
   source "$_bs_plug/fzf-tab/fzf-tab.plugin.zsh"
+  # fzf-tab needs `menu no`, but the native fallback menu needs `menu select`
+  # (that's where keys.zsh's h/j/k/l bindings live). The plugin's own toggles
+  # never touch that zstyle, so the promised `disable-fzf-tab` fallback would
+  # land in a menu-less limbo — wrap both toggles (same functions -c trick as
+  # ysu below) so each mode always gets the right menu.
+  if (( ${+functions[disable-fzf-tab]} && ! ${+functions[_bs_disable_fzf_tab]} )); then
+    functions -c disable-fzf-tab _bs_disable_fzf_tab
+    disable-fzf-tab() { _bs_disable_fzf_tab "$@"; zstyle ':completion:*' menu select; }
+  fi
+  if (( ${+functions[enable-fzf-tab]} && ! ${+functions[_bs_enable_fzf_tab]} )); then
+    functions -c enable-fzf-tab _bs_enable_fzf_tab
+    enable-fzf-tab() { _bs_enable_fzf_tab "$@"; zstyle ':completion:*' menu no; }
+  fi
 fi
 unset _bs_dirprev _bs_fileprev
 

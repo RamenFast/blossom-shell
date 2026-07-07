@@ -291,6 +291,12 @@ cmd_doctor() {
   done
   command -v bat >/dev/null || command -v batcat >/dev/null \
     && ok "tool: bat" || warn "optional tool missing: bat (sudo apt install bat)"
+  # emoji-path readiness — completing/rendering 📁-style names needs UTF-8
+  local eloc="${LC_ALL:-${LC_CTYPE:-${LANG:-unset}}}"
+  case "$eloc" in
+    *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) ok "locale: $eloc (emoji-ready)" ;;
+    *) warn "locale '$eloc' is not UTF-8 — emoji filenames will misrender (env.zsh heals zsh itself; export LANG=en_US.UTF-8 for everything else)" ;;
+  esac
   is_ours "$HOME/.zshrc" && ok "config installed (~/.zshrc is ours)" || warn "not enabled yet (run: blossom-shell enable)"
   if [ -L /usr/bin/zsh ]; then ok "system link: /bin/zsh → $(readlink -f /usr/bin/zsh)"
   else warn "no /bin/zsh link — IDEs/tools that hard-code it will fail (run: blossom-shell system-link)"; fi

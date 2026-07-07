@@ -62,10 +62,44 @@ exactly where you started.
 - A two-line, git-aware **❀ prompt**: current path in gold, branch in pink,
   staged/unstaged dots, and a petal that turns red when a command fails — and
   blue/purple/gold in vi normal/visual/replace mode.
-- Menu-driven, case-insensitive tab completion; a big shared history; sane keys.
+- Menu-driven, case-insensitive, **emoji-proof** tab completion: `Doc<TAB>`
+  completes `📁 Documents` — typed text may land anywhere in a name, so
+  emoji-prefixed paths complete from their letters (see below); a big shared
+  history; sane keys.
 - **All your bash aliases/env carried over** (`ll`, `claude`, the `nexus`→hermes
   wrapper, NVM/cargo/bun/PATH, …) plus a few extras (`..`, `mkcd`, git shorthands,
   `extract`, `please`).
+
+## Emoji in paths, first-class
+
+Names like `📁 Documents` or `🎵 Music` start with characters you can't type,
+which normally strands tab completion. Blossom's completion matches in tiers —
+exact prefix first, then across `._-` word breaks, then substring — and a tier
+is tried only when the one before found nothing. So `cd Doc<TAB>` reaches
+`📁 Documents`, plain names keep winning wherever they exist, and you never
+have to type (or delete) an emoji. This works in both menus: fzf-tab's fuzzy
+list and the native h/j/k/l menu (after `disable-fzf-tab`).
+
+Three more things keep emoji paths healthy end to end:
+
+- **Locale self-heal** (`env.zsh`): IDE terminals and bare launchers sometimes
+  spawn shells with `LANG` unset or `=C`, turning emoji to mojibake. If the
+  locale isn't UTF-8, the shell repairs `LC_CTYPE` from whatever UTF-8 locale
+  the system has.
+- **`COMBINING_CHARS`** (`options.zsh`): multi-codepoint glyphs — ❤️, flags,
+  accents — occupy one cell, so the cursor can't drift after completing them.
+- **Exact parents accepted as-is** (`accept-exact-dirs`): completing *inside*
+  `📁 Documents/` never re-litigates the emoji component.
+- **zoxide re-wired** (`plugins.zsh`): zoxide's `cd` completion hook reports
+  success even when it matched nothing, which stops the tier retry cold —
+  blossom wraps it to tell the truth, so the substring tier runs through
+  zoxide's `cd` too.
+
+`blossom-shell doctor` checks that your locale is UTF-8. And it's all proven
+end to end: `zsh tests/emoji-completion.zsh` types real keystrokes (literal
+`<TAB>`s) into a live Blossom zsh through a pty, executes the completed lines,
+and asserts the shell really landed in `🎵 Music`, `👨‍👩‍👧‍👦 family`, and
+friends — in both the fzf-tab and native-menu pipelines.
 
 ## Reversibility, exactly
 
@@ -81,13 +115,15 @@ exactly where you started.
 ```
 blossom-shell        the CLI (bash)
 shell/
-  env.zsh            login PATH + tool inits (mirrors your bash env)
+  env.zsh            login PATH + locale self-heal + tool inits (mirrors bash)
   init.zsh           entrypoint sourced by ~/.zshrc
   options.zsh        options, history, completion
   plugins.zsh        plugin loading + Blossom recolouring
   keys.zsh           keybindings (after plugins: zsh-vi-mode rebuilds keymaps)
   aliases.zsh        your aliases + extras (eza ls, Blossom man pages)
   prompt.zsh         the Blossom prompt (vi-mode-aware petal)
+tests/
+  emoji-completion.zsh  end-to-end pty proof that emoji paths tab-complete
 ```
 
 Plugins are cloned to `~/.local/share/blossom-shell/plugins/` at `enable` time.

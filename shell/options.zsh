@@ -12,6 +12,17 @@ setopt NO_BEEP
 setopt NO_FLOW_CONTROL      # free up ctrl-s / ctrl-q
 setopt PROMPT_SUBST
 
+# --- unicode / emoji ---
+# Paths on this machine have emojis in them; the line editor treats that as
+# normal. MULTIBYTE is on by default under a UTF-8 locale, but odd launchers
+# strip the environment (env.zsh heals the locale itself) — so say it
+# explicitly. COMBINING_CHARS makes multi-codepoint glyphs — ❤️ (heart +
+# variation selector), flags, accents — occupy one cell, so the cursor can't
+# drift after completing an emoji filename. Every terminal we target supports
+# it; the raw console (TERM=linux) and dumb terminals don't, so they opt out.
+setopt MULTIBYTE
+[[ $TERM != (dumb|linux) ]] && setopt COMBINING_CHARS
+
 # --- history ---
 HISTFILE="$HOME/.zsh_history"
 HISTSIZE=100000
@@ -33,7 +44,22 @@ compinit -d "$ZCD/zcompdump"
 zmodload zsh/complist 2>/dev/null
 setopt COMPLETE_IN_WORD ALWAYS_TO_END
 zstyle ':completion:*' menu select                         # arrow-key menu
-zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'  # case-insensitive
+# Matching runs in three tiers — a tier is tried only when the one before it
+# found nothing, so everyday completion behaves exactly as it always did:
+#   1. classic case-insensitive prefix
+#   2. …also across . _ - word breaks (v.2<TAB> → v0.2.1 style)
+#   3. substring — the typed text may land anywhere in the name. This is what
+#      makes emoji paths completable: "📁 Documents" starts with a character
+#      you can't type, so Doc<TAB> must be allowed to match mid-name. Type
+#      the letters, never the emoji.
+zstyle ':completion:*' matcher-list \
+  'm:{a-zA-Z}={A-Za-z}' \
+  'm:{a-zA-Z}={A-Za-z} r:|[._-]=* r:|=*' \
+  'm:{a-zA-Z}={A-Za-z} l:|=* r:|=*'
+# a parent directory the line already names exactly (emoji and all) is taken
+# as-is rather than re-run through the matcher — descending into
+# "📁 Documents/…" stays fast and never gets second-guessed
+zstyle ':completion:*' accept-exact-dirs true
 zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}      # colourful matches
 zstyle ':completion:*' group-name ''
 zstyle ':completion:*:descriptions' format '%F{#9b6cf2}%B%d%b%f'
