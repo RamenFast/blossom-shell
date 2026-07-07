@@ -42,15 +42,26 @@ exactly where you started.
 
 ## What you get (the short version)
 
+- **Vim at the prompt** (zsh-vi-mode): Esc into normal mode with text objects
+  (`ciw`, `da"`), vim-surround (`ys`/`ds`/`cs`, `S` in visual), visual mode with
+  a pink selection, and a mode-aware cursor (beam→insert, block→normal).
 - Fish-style **autosuggestions** from your history, **substring history search**
-  on ↑/↓, and **syntax highlighting** as you type — all recoloured to the Blossom
-  palette (pink/gold/blue on the void).
+  on ↑/↓, and **syntax highlighting** with **rainbow bracket matching** — all
+  recoloured to the Blossom palette (pink/gold/blue on the void).
 - **fzf-tab** fuzzy completion menu with **vim navigation** (Ctrl-h/j/k/l,
-  Ctrl-d/u); the native zsh menu (when you `disable-fzf-tab`) gets plain
-  h/j/k/l/g/G. Plus **autopair** (auto-closing quotes/brackets), **you-should-use**
-  (alias reminders), and **zsh-completions** (hundreds of extra completions).
+  Ctrl-d/u) and **live previews** (dir listings via eza, file contents via bat);
+  the native zsh menu (when you `disable-fzf-tab`) gets plain h/j/k/l/g/G. Plus
+  **autopair** (auto-closing quotes/brackets), **you-should-use** (alias
+  reminders), and **zsh-completions** (hundreds of extra completions).
+- **Smarter navigation**: zoxide makes `cd blos` jump to your most-used matching
+  directory from anywhere (`cdi` = interactive picker), and fzf's Ctrl-T / Alt-C /
+  Ctrl-R get bordered, previewing, ❀-pointed menus.
+- **Prettier everything**: `ls`/`ll`/`la`/`lt` run on eza when installed (icons,
+  git status column, grouped dirs, tree view) and man pages render in Blossom
+  colours — all guarded, so nothing breaks where the tools are missing.
 - A two-line, git-aware **❀ prompt**: current path in gold, branch in pink,
-  staged/unstaged dots, and a petal that turns red when a command fails.
+  staged/unstaged dots, and a petal that turns red when a command fails — and
+  blue/purple/gold in vi normal/visual/replace mode.
 - Menu-driven, case-insensitive tab completion; a big shared history; sane keys.
 - **All your bash aliases/env carried over** (`ll`, `claude`, the `nexus`→hermes
   wrapper, NVM/cargo/bun/PATH, …) plus a few extras (`..`, `mkcd`, git shorthands,
@@ -72,10 +83,11 @@ blossom-shell        the CLI (bash)
 shell/
   env.zsh            login PATH + tool inits (mirrors your bash env)
   init.zsh           entrypoint sourced by ~/.zshrc
-  options.zsh        options, history, completion, keybindings
-  aliases.zsh        your aliases + extras
-  prompt.zsh         the Blossom prompt
+  options.zsh        options, history, completion
   plugins.zsh        plugin loading + Blossom recolouring
+  keys.zsh           keybindings (after plugins: zsh-vi-mode rebuilds keymaps)
+  aliases.zsh        your aliases + extras (eza ls, Blossom man pages)
+  prompt.zsh         the Blossom prompt (vi-mode-aware petal)
 ```
 
 Plugins are cloned to `~/.local/share/blossom-shell/plugins/` at `enable` time.

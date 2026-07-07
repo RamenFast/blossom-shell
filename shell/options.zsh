@@ -40,27 +40,6 @@ zstyle ':completion:*:descriptions' format '%F{#9b6cf2}%B%d%b%f'
 zstyle ':completion:*:warnings'     format '%F{#ec4e53}no matches%f'
 zstyle ':completion:*' rehash true
 
-# --- keybindings (emacs base + sane terminal keys) ---
-bindkey -e
-bindkey '^[[H'  beginning-of-line
-bindkey '^[[F'  end-of-line
-bindkey '^[[1~' beginning-of-line
-bindkey '^[[4~' end-of-line
-bindkey '^[[3~' delete-char
-bindkey '^[[1;5C' forward-word      # ctrl-right
-bindkey '^[[1;5D' backward-word     # ctrl-left
-bindkey '^H' backward-kill-word     # ctrl-backspace
-
-# --- vim keys in the completion selection menu (zsh's native menuselect) ---
-# This is the menu you get when fzf isn't driving completion. With fzf installed,
-# fzf-tab takes over TAB (see plugins.zsh) and its vim nav is Ctrl-h/j/k/l — letter
-# keys there type into the fuzzy filter. Run `disable-fzf-tab` to fall back to this
-# native menu and get plain h/j/k/l. (zsh/complist is loaded above.)
-bindkey -M menuselect 'h' vi-backward-char
-bindkey -M menuselect 'j' vi-down-line-or-history
-bindkey -M menuselect 'k' vi-up-line-or-history
-bindkey -M menuselect 'l' vi-forward-char
-bindkey -M menuselect 'g' beginning-of-history     # jump to first match
-bindkey -M menuselect 'G' end-of-history           # jump to last match
-bindkey -M menuselect '/' history-incremental-search-forward  # filter within the menu
-bindkey -M menuselect '^[' send-break              # Esc cancels
+# --- keybindings ---
+# All in keys.zsh, sourced *after* plugins.zsh: zsh-vi-mode rebuilds the vi
+# keymaps as it initializes, so anything bound here would be wiped.

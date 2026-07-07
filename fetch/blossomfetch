@@ -4,7 +4,8 @@
 #   blossomfetch            full view (custom blossom logo + detailed, adaptive)
 #   blossomfetch -m|--mini  compact login greeter
 #   blossomfetch -b|--blossom   force true pink/gold (overrides the adaptive palette)
-#   blossomfetch -s|--steam     Steam-comment-safe spec block (no fastfetch needed)
+#   blossomfetch -s|--steam [game]  Steam-comment-safe spec block (no fastfetch
+#                               needed); the optional game name tags the header
 #         add  -c|--copy        also copy it to the clipboard
 #   blossomfetch -h|--help
 #
@@ -74,6 +75,7 @@ run_blossom() {
 # proportional font — so: one fact per line, single spaces, no column alignment,
 # inline "·" separators, unicode section glyphs.  All probed live.
 steam_block() {
+  local game="${1:-}"
   local os de sess kern cpu cores threads mhz gpu vram ram board res disk hz fsroot
 
   . /etc/os-release 2>/dev/null
@@ -92,11 +94,14 @@ steam_block() {
   local ghz=""; [ -n "$mhz" ] && ghz="$(awk -v m="$mhz" 'BEGIN{printf "%.2f", m/1000}')"
 
   gpu="$(gpu_name)"   # "Marketing Name (Codename)"
-  vram="$(awk '{printf "%.0f", $1/1073741824}' /sys/class/drm/card*/device/mem_info_vram_total 2>/dev/null | head -1)"
+  # one figure per card, largest wins — with an iGPU + dGPU that's the discrete
+  # card, the same one gpu_name's first-match lspci reports
+  vram="$(awk '{printf "%.0f\n", $1/1073741824}' /sys/class/drm/card*/device/mem_info_vram_total 2>/dev/null | sort -nr | head -1)"
 
   # MemTotal is the kernel-usable figure (~31.3 for 32 installed); round to the
-  # nearest 4 GB to report the marketed capacity sticks actually total.
-  ram="$(awk '/MemTotal/{g=$2/1024/1024; printf "%d", (int((g+2)/4))*4}' /proc/meminfo)"
+  # nearest 2 GB to report the marketed capacity sticks actually total (2 not 4:
+  # 6/12/24/48 GB kits exist). Tiny VMs (<2 GB) show the raw figure instead.
+  ram="$(awk '/MemTotal/{g=$2/1024/1024; r=int((g+1)/2)*2; if (r<2) printf "%.1f", g; else printf "%d", r}' /proc/meminfo)"
   board="$(cat /sys/devices/virtual/dmi/id/board_vendor 2>/dev/null) $(cat /sys/devices/virtual/dmi/id/board_name 2>/dev/null)"
   board="$(echo "$board" | sed 's/^ *//; s/ *$//')"
   res="$(xrandr 2>/dev/null | sed -n 's/.*current \([0-9]\+\) x \([0-9]\+\).*/\1×\2/p' | head -1)"
@@ -116,7 +121,8 @@ steam_block() {
     } END{print ""}')"
 
   # assemble (leading "·" lines have no leading spaces; safe for Steam)
-  printf '❀ SYSTEM SPECS ❀  ·  Arc Raiders\n'
+  if [ -n "$game" ]; then printf '❀ SYSTEM SPECS ❀  ·  %s\n' "$game"
+  else                    printf '❀ SYSTEM SPECS ❀\n'; fi
   printf '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
   printf '▸ OS:  %s  ·  %s (%s)\n' "$os" "$de" "$sess"
   printf '▸ Kernel:  Linux %s\n' "$kern"
@@ -130,8 +136,15 @@ steam_block() {
 }
 
 run_steam() {
-  local copy=0; [ "${1:-}" = "--copy" ] || [ "${1:-}" = "-c" ] && copy=1
-  local block; block="$(steam_block)"
+  local copy=0 game="" a
+  for a in "$@"; do
+    case "$a" in
+      -c|--copy) copy=1 ;;
+      -*) echo "blossomfetch --steam: unknown option '$a'" >&2; return 1 ;;
+      *)  game="$a" ;;              # optional: tag the header with a game name
+    esac
+  done
+  local block; block="$(steam_block "$game")"
   printf '%s\n' "$block"
   if [ "$copy" = 1 ]; then
     if   have wl-copy; then printf '%s' "$block" | wl-copy        && echo "  ❀ copied to clipboard (wl-copy)"
@@ -141,13 +154,14 @@ run_steam() {
   fi
 }
 
-usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; }
+# print the header comment block (everything from line 2 to the first non-# line)
+usage() { awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"; }
 
 case "${1:-}" in
   ""|full)        run_full ;;
   -m|--mini)      run_mini ;;
   -b|--blossom)   run_blossom ;;
-  -s|--steam)     shift; run_steam "${1:-}" ;;
+  -s|--steam)     shift; run_steam "$@" ;;
   --gpu-name)     gpu_name; echo ;;        # internal: used by the full config
   --host-name)    host_name ;;             # internal: used by the full config
   -h|--help)      usage ;;

@@ -7,7 +7,8 @@ logo, adaptive colours, MB/GB memory, and a Steam-comment-safe spec block.
 blossomfetch              full view — blossom logo + detailed, adaptive colours
 blossomfetch -m|--mini    compact login greeter (the autostart one)
 blossomfetch -b|--blossom force true pink/gold (overrides the adaptive palette)
-blossomfetch -s|--steam   Steam-safe spec block  (add -c|--copy for clipboard)
+blossomfetch -s|--steam [game]  Steam-safe spec block; the optional game name
+                          tags the header  (add -c|--copy for clipboard)
 ```
 
 ## Palette is adaptive

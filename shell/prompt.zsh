@@ -20,10 +20,28 @@ _blossom_precmd() {
   psvar=('' '')
   [[ -n "$SSH_CONNECTION" ]] && psvar[1]="${USER}@${HOST%%.*}"
   [[ -n "$VIRTUAL_ENV" ]]    && psvar[2]="${VIRTUAL_ENV:t}"
+  _blossom_mode_fg=$_blossom_petal_insert   # each new line starts in insert mode
 }
 add-zsh-hook precmd _blossom_precmd
 
+# vi-mode indicator — zsh-vi-mode calls this hook on every mode switch. The
+# petal recolours: blue=normal, purple=visual, gold=replace; insert keeps the
+# usual pink (or red after a failed command). Harmless no-op without the plugin.
+# The variable always carries the *complete* colour code: a ${var:-fallback}
+# with %F{…} inside would trip the same nested-brace collision psvar avoids.
+typeset -g _blossom_petal_insert='%(?.%F{#db3776}.%F{#ec4e53})'
+typeset -g _blossom_mode_fg="$_blossom_petal_insert"
+zvm_after_select_vi_mode() {
+  case "$ZVM_MODE" in
+    "$ZVM_MODE_NORMAL")                          _blossom_mode_fg='%F{#36c8ff}' ;;
+    "$ZVM_MODE_VISUAL"|"$ZVM_MODE_VISUAL_LINE")  _blossom_mode_fg='%F{#9b6cf2}' ;;
+    "$ZVM_MODE_REPLACE")                         _blossom_mode_fg='%F{#f1bf40}' ;;
+    *)                                           _blossom_mode_fg=$_blossom_petal_insert ;;
+  esac
+  zle reset-prompt 2>/dev/null || true
+}
+
 setopt PROMPT_SUBST
 PROMPT='%(1V.%F{#9b6cf2}%1v%f .)%(2V.%F{#9b6cf2}(%2v)%f .)%F{#f1bf40}%~%f${vcs_info_msg_0_}
-%(?.%F{#db3776}.%F{#ec4e53})❀%f '
+${_blossom_mode_fg}❀%f '
 RPROMPT='%F{#3a4654}%*%f'

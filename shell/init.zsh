@@ -10,8 +10,9 @@ source "$_bs/env.zsh"
 # everything below is interactive-only
 [[ -o interactive ]] || return
 
-source "$_bs/options.zsh"    # shell options, history, completion, keybinds
-source "$_bs/plugins.zsh"    # autosuggestions, history search, syntax highlight
+source "$_bs/options.zsh"    # shell options, history, completion
+source "$_bs/plugins.zsh"    # vi-mode, autosuggestions, fzf/fzf-tab, zoxide, highlight
+source "$_bs/keys.zsh"       # keybindings (after plugins: zsh-vi-mode resets keymaps)
 source "$_bs/aliases.zsh"    # aliases + functions (ported from bash + extras)
 source "$_bs/prompt.zsh"     # the Blossom prompt
 

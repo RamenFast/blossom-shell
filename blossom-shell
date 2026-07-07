@@ -95,6 +95,7 @@ plugins_install() {
       else warn "couldn't clone $name (offline?) — shell still works, just without it"; fi
     fi
   done <<'PLUGS'
+zsh-vi-mode https://github.com/jeffreytse/zsh-vi-mode
 zsh-autosuggestions https://github.com/zsh-users/zsh-autosuggestions
 zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting
 zsh-history-substring-search https://github.com/zsh-users/zsh-history-substring-search
@@ -274,16 +275,22 @@ cmd_doctor() {
   # lint every config file with zsh -n
   if [ -n "$zb" ]; then
     local f
-    for f in env.zsh options.zsh aliases.zsh prompt.zsh plugins.zsh init.zsh; do
+    for f in env.zsh options.zsh keys.zsh aliases.zsh prompt.zsh plugins.zsh init.zsh; do
       if "$zb" -n "$SHELL_SRC/$f" 2>/tmp/bs_lint.$$; then ok "syntax ok: shell/$f"
       else err "syntax error in shell/$f:"; sed 's/^/      /' /tmp/bs_lint.$$; fail=1; fi
     done
     rm -f /tmp/bs_lint.$$
   else warn "skipping syntax lint (no zsh)"; fi
-  for p in zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search fzf-tab \
-           zsh-completions zsh-autopair you-should-use; do
+  for p in zsh-vi-mode zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search \
+           fzf-tab zsh-completions zsh-autopair you-should-use; do
     [ -d "$PLUGDIR/$p" ] && ok "plugin: $p" || warn "plugin missing: $p (run: blossom-shell enable)"
   done
+  # optional binaries the config lights up around (all guarded — nothing breaks without them)
+  for t in fzf zoxide eza; do
+    command -v "$t" >/dev/null && ok "tool: $t" || warn "optional tool missing: $t (sudo apt install $t)"
+  done
+  command -v bat >/dev/null || command -v batcat >/dev/null \
+    && ok "tool: bat" || warn "optional tool missing: bat (sudo apt install bat)"
   is_ours "$HOME/.zshrc" && ok "config installed (~/.zshrc is ours)" || warn "not enabled yet (run: blossom-shell enable)"
   if [ -L /usr/bin/zsh ]; then ok "system link: /bin/zsh → $(readlink -f /usr/bin/zsh)"
   else warn "no /bin/zsh link — IDEs/tools that hard-code it will fail (run: blossom-shell system-link)"; fi
@@ -332,7 +339,8 @@ cmd_build_zsh() {
 }
 
 usage() {
-  sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
+  # print the header comment block (everything from line 2 to the first non-# line)
+  awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"
 }
 
 case "${1:-help}" in
