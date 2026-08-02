@@ -13,7 +13,21 @@
 # it works (and stays paste-clean) even where fastfetch isn't installed.
 set -uo pipefail
 
-CFG="${XDG_CONFIG_HOME:-$HOME/.config}/fastfetch"
+config_file() {
+  local name="$1" root
+  if [ -n "${BLOSSOMFETCH_CONFIG_HOME:-}" ]; then
+    root="$BLOSSOMFETCH_CONFIG_HOME"
+  else
+    root="${XDG_CONFIG_HOME:-$HOME/.config}/fastfetch"
+    # Greenhouse gives Ghostty an isolated XDG root so Cinnamon and Sway can
+    # keep separate terminal personalities. A shell inherited that root before
+    # the launcher scrubbed it, which made the startup greeter ask fastfetch for
+    # a config that cannot exist there. Prefer XDG when the requested config is
+    # real, then recover through the user's normal home config.
+    [ -r "$root/$name" ] || root="$HOME/.config/fastfetch"
+  fi
+  printf '%s/%s\n' "$root" "$name"
+}
 
 # --- Blossom truecolor (only used by --blossom) -------------------------------
 B_PINK="38;2;219;55;118"; B_GOLD="38;2;241;191;64"; B_SOFT="38;2;230;115;159"
@@ -59,13 +73,13 @@ need_fastfetch() {
 # so a plain call makes fastfetch stop at *this* bash and mislabel the shell as
 # "bash" even from a zsh terminal. exec replaces the wrapper, so fastfetch's
 # parent is the real interactive shell (e.g. zsh) and it reports it correctly.
-run_full()  { need_fastfetch || return 1; exec fastfetch --config "$CFG/config-full.jsonc" "$@"; }
-run_mini()  { need_fastfetch || return 1; exec fastfetch --config "$CFG/config-mini.jsonc" "$@"; }
+run_full()  { need_fastfetch || return 1; exec fastfetch --config "$(config_file config-full.jsonc)" "$@"; }
+run_mini()  { need_fastfetch || return 1; exec fastfetch --config "$(config_file config-mini.jsonc)" "$@"; }
 
 run_blossom() {
   need_fastfetch || return 1
   # Override the adaptive SGR slots with true Blossom truecolor.
-  exec fastfetch --config "$CFG/config-full.jsonc" \
+  exec fastfetch --config "$(config_file config-full.jsonc)" \
     --logo-color-1 "$B_PINK" --logo-color-2 "$B_GOLD" --logo-color-3 "$B_SOFT" \
     --color-keys "$B_GOLD" --color-title "$B_PINK"
 }
